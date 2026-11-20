@@ -5,9 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -81,7 +83,19 @@ fun PantallaTareas(vm: TareasViewModel) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                TarjetaTarea(titulo = "Tarea con progreso") {
+                // Cálculo de estado para el avatar del cohete (if / else)
+                val estadoCohete = if (corriendo) {
+                    EstadoAvatar.Trabajando
+                } else if (mensaje == "Terminó") {
+                    EstadoAvatar.Exito
+                } else {
+                    EstadoAvatar.Reposo
+                }
+
+                TarjetaTarea(
+                    titulo = "Tarea con progreso",
+                    avatar = { AvatarCohete(estado = estadoCohete) }
+                ) {
                     Button(onClick = { toques++ }) { Text("Tócame: $toques") }
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         // Iniciar se deshabilita mientras corre; Cancelar solo se habilita mientras corre
@@ -99,7 +113,19 @@ fun PantallaTareas(vm: TareasViewModel) {
                     Text(text = mensaje, style = MaterialTheme.typography.bodyMedium)
                 }
 
-                TarjetaTarea(titulo = "Contar números primos") {
+                // Cálculo de estado para el avatar del planeta (if / else)
+                val estadoPlaneta = if (primos is PrimosUi.Calculando) {
+                    EstadoAvatar.Trabajando
+                } else if (primos is PrimosUi.Listo) {
+                    EstadoAvatar.Exito
+                } else {
+                    EstadoAvatar.Reposo
+                }
+
+                TarjetaTarea(
+                    titulo = "Contar números primos",
+                    avatar = { AvatarPlaneta(estado = estadoPlaneta) }
+                ) {
                     // Paso 5: el texto del campo vive en la pantalla (rememberSaveable sobrevive a rotar)
                     OutlinedTextField(
                         value = textoN,
@@ -144,7 +170,21 @@ fun PantallaTareas(vm: TareasViewModel) {
                     }
                 }
 
-                TarjetaTarea(titulo = "Dos cargas") {
+                // Cálculo de estado para el avatar del satélite (if / else)
+                val estadoSatelite = if (carga is CargaUi.Cargando) {
+                    EstadoAvatar.Trabajando
+                } else if (carga is CargaUi.Exito) {
+                    EstadoAvatar.Exito
+                } else if (carga is CargaUi.Error) {
+                    EstadoAvatar.Error
+                } else {
+                    EstadoAvatar.Reposo
+                }
+
+                TarjetaTarea(
+                    titulo = "Dos cargas",
+                    avatar = { AvatarSatelite(estado = estadoSatelite) }
+                ) {
                     // Paso 6: los botones se deshabilitan mientras carga para no lanzar dos cargas
                     val cargando = carga is CargaUi.Cargando
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -203,6 +243,7 @@ private fun CajaResultado(texto: String, fondo: Color, colorTexto: Color) {
 @Composable
 private fun TarjetaTarea(
     titulo: String,
+    avatar: @Composable () -> Unit = {},
     contenido: @Composable () -> Unit
 ) {
     Card(
@@ -222,12 +263,19 @@ private fun TarjetaTarea(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                text = titulo,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                avatar()
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = titulo,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f)
+                )
+            }
             contenido()
         }
     }
