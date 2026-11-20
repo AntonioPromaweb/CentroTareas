@@ -189,7 +189,7 @@ fun PantallaTareas(vm: TareasViewModel) {
                 }
 
                 // Cálculo de estado para el avatar del satélite (if / else)
-                val estadoSatelite = if (carga is CargaUi.Cargando) {
+                val estadoSatelite = if (carga is CargaUi.Cargando || carga is CargaUi.Reintentando) {
                     EstadoAvatar.Trabajando
                 } else if (carga is CargaUi.Exito) {
                     EstadoAvatar.Exito
@@ -203,8 +203,8 @@ fun PantallaTareas(vm: TareasViewModel) {
                     titulo = "Dos cargas",
                     avatar = { AvatarSatelite(estado = estadoSatelite) }
                 ) {
-                    // Paso 6: los botones se deshabilitan mientras carga para no lanzar dos cargas
-                    val cargando = carga is CargaUi.Cargando
+                    // Paso 6: los botones se deshabilitan mientras carga o reintenta
+                    val cargando = carga is CargaUi.Cargando || carga is CargaUi.Reintentando
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(onClick = { vm.cargarUnaPorUna() }, enabled = !cargando) { Text("Una por una") }
                         Button(onClick = { vm.cargarALaVez() }, enabled = !cargando) { Text("A la vez") }
@@ -226,6 +226,10 @@ fun PantallaTareas(vm: TareasViewModel) {
                         CargaUi.Cargando -> {
                             CircularProgressIndicator()
                             Text("Cargando...")
+                        }
+                        is CargaUi.Reintentando -> {
+                            CircularProgressIndicator()
+                            Text("Reintentando (${estado.intento} de 3)...")
                         }
                         is CargaUi.Exito -> CajaResultado(
                             "Modo: ${estado.modo}\nPerfil: ${estado.perfil}\n" +

@@ -103,11 +103,9 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
         trabajoPrimos?.cancel()
     }
 
-    // ----- Dos cargas (pasos 6 y 7)
+    // ----- Dos cargas (pasos 6 y 7 + reintentos automáticos)
     private val _carga = MutableStateFlow<CargaUi>(CargaUi.Inicial)
     val carga: StateFlow<CargaUi> = _carga.asStateFlow()
-
-    // Paso 6: dos cargas independientes (perfil 2 s y pedidos 3 s). Se comparan dos formas.
 
     // Paso 7: interruptor para forzar que cargarPedidos falle (para probar el manejo de errores)
     private val _simularError = MutableStateFlow(false)
@@ -117,15 +115,47 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
         _simularError.value = valor
     }
 
+    // Reintento automático: ejecuta el bloque hasta "maximo" veces. Entre un intento y el
+    // siguiente espera 1 s, 2 s... (espera creciente) con delay, que no bloquea ningún hilo.
+    // Si agota los intentos, relanza el último error para que lo muestre el catch de afuera.
+    private suspend fun <T> conReintentos(
+        maximo: Int = 3,
+        alReintentar: (Int) -> Unit,
+        bloque: suspend () -> T
+    ): T {
+        var intento = 1
+        while (true) {
+            try {
+                return bloque()
+            } catch (e: CancellationException) {
+                throw e // La cancelación se relanza inmediatamente sin reintentar
+            } catch (e: Exception) {
+                if (intento < maximo) {
+                    val siguienteIntento = intento + 1
+                    alReintentar(siguienteIntento)
+                    delay(1000L * intento)
+                    intento = siguienteIntento
+                } else {
+                    throw e
+                }
+            }
+        }
+    }
+
     // Una por una: la segunda espera a que termine la primera -> ~5 s (2 + 3)
     fun cargarUnaPorUna() {
-        if (_carga.value is CargaUi.Cargando) return // evita doble inicio
+        if (_carga.value is CargaUi.Cargando || _carga.value is CargaUi.Reintentando) return // evita doble inicio
         _carga.value = CargaUi.Cargando
         viewModelScope.launch {
             val inicio = System.currentTimeMillis()
             try {
-                val perfil = repo.cargarPerfil()                         // espera 2 s
-                val pedidos = repo.cargarPedidos(_simularError.value)    // y luego 3 s
+                val perfil = repo.cargarPerfil()                         // espera 2 s (sin reintentos)
+                val pedidos = conReintentos(
+                    maximo = 3,
+                    alReintentar = { intento -> _carga.value = CargaUi.Reintentando(intento, 3) }
+                ) {
+                    repo.cargarPedidos(_simularError.value)
+                }
                 _carga.value = CargaUi.Exito(
                     modo = "Una por una",
                     perfil = perfil,
@@ -144,14 +174,21 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
     // -> ~3 s (lo que tarda la más lenta). coroutineScope hace que, si una falla o se
     // cancela, la otra también se cancele. La excepción sale por await() y se atrapa fuera.
     fun cargarALaVez() {
-        if (_carga.value is CargaUi.Cargando) return
+        if (_carga.value is CargaUi.Cargando || _carga.value is CargaUi.Reintentando) return
         _carga.value = CargaUi.Cargando
         viewModelScope.launch {
             val inicio = System.currentTimeMillis()
             try {
                 coroutineScope {
                     val perfil = async { repo.cargarPerfil() }
-                    val pedidos = async { repo.cargarPedidos(_simularError.value) }
+                    val pedidos = async {
+                        conReintentos(
+                            maximo = 3,
+                            alReintentar = { intento -> _carga.value = CargaUi.Reintentando(intento, 3) }
+                        ) {
+                            repo.cargarPedidos(_simularError.value)
+                        }
+                    }
                     _carga.value = CargaUi.Exito(
                         modo = "A la vez",
                         perfil = perfil.await(),
