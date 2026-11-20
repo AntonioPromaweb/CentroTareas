@@ -7,6 +7,7 @@ import com.vasquez.centrotareas.data.TareasRepository
 import com.vasquez.centrotareas.model.CargaUi
 import com.vasquez.centrotareas.model.PrimosUi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,28 +26,46 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
     private val _progreso = MutableStateFlow(0f)
     val progreso: StateFlow<Float> = _progreso.asStateFlow()
 
-    // Pasos 2 y 3: viewModelScope.launch arranca una corrutina (empieza en el hilo principal)
+    // Paso 4: guardamos el Job que devuelve launch para poder cancelarlo, y un estado
+    // "corriendo" que la pantalla usa para habilitar o deshabilitar los botones.
+    private var trabajo: Job? = null
+    private val _corriendo = MutableStateFlow(false)
+    val corriendo: StateFlow<Boolean> = _corriendo.asStateFlow()
+
+    // Pasos 2 a 4: viewModelScope.launch arranca una corrutina (empieza en el hilo principal)
     // y withContext cambia a un hilo de segundo plano para el trabajo. delay SUSPENDE la
     // corrutina sin bloquear ningún hilo, así que la pantalla sigue dibujando y atendiendo
     // toques. 100 vueltas x 40 ms = 4 segundos, y cada vuelta avanza la barra un 1 %.
     fun tareaLarga() {
-        viewModelScope.launch {
-            _progreso.value = 0f
-            _mensaje.value = "Trabajando..."
-            Log.d("HILO", "Antes: ${Thread.currentThread().name}")
-            withContext(Dispatchers.Default) {
-                Log.d("HILO", "Dentro: ${Thread.currentThread().name}")
-                for (i in 1..100) {
-                    delay(40)
-                    _progreso.value = i / 100f
+        // Doble inicio: si ya hay una tarea corriendo, no lanzamos otra
+        if (_corriendo.value) return
+        _corriendo.value = true
+        trabajo = viewModelScope.launch {
+            try {
+                _progreso.value = 0f
+                _mensaje.value = "Trabajando..."
+                Log.d("HILO", "Antes: ${Thread.currentThread().name}")
+                withContext(Dispatchers.Default) {
+                    Log.d("HILO", "Dentro: ${Thread.currentThread().name}")
+                    for (i in 1..100) {
+                        delay(40) // delay revisa la cancelación en cada vuelta
+                        _progreso.value = i / 100f
+                    }
                 }
+                Log.d("HILO", "Despues: ${Thread.currentThread().name}")
+                _mensaje.value = "Terminó"
+            } finally {
+                // Se ejecuta siempre: si terminó bien o si la cancelaron
+                _corriendo.value = false
             }
-            Log.d("HILO", "Despues: ${Thread.currentThread().name}")
-            _mensaje.value = "Terminó"
         }
     }
 
-    // TODO Paso 4: trabajo (Job), corriendo y cancelar()
+    // Cancela el Job: la barra se queda donde estaba y el mensaje pasa a Cancelado
+    fun cancelar() {
+        trabajo?.cancel()
+        _mensaje.value = "Cancelado"
+    }
 
     // ----- Contar primos (paso 5)
     private val _primos = MutableStateFlow<PrimosUi>(PrimosUi.Inicial)
