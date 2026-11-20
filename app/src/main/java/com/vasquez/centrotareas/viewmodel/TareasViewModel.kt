@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.vasquez.centrotareas.data.TareasRepository
 import com.vasquez.centrotareas.model.CargaUi
+import com.vasquez.centrotareas.model.ComparacionTiempos
 import com.vasquez.centrotareas.model.PrimosUi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -103,9 +104,12 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
         trabajoPrimos?.cancel()
     }
 
-    // ----- Dos cargas (pasos 6 y 7 + reintentos automáticos)
+    // ----- Dos cargas (pasos 6 y 7 + reintentos automáticos + comparación de tiempos)
     private val _carga = MutableStateFlow<CargaUi>(CargaUi.Inicial)
     val carga: StateFlow<CargaUi> = _carga.asStateFlow()
+
+    private val _comparacion = MutableStateFlow(ComparacionTiempos())
+    val comparacion: StateFlow<ComparacionTiempos> = _comparacion.asStateFlow()
 
     // Paso 7: interruptor para forzar que cargarPedidos falle (para probar el manejo de errores)
     private val _simularError = MutableStateFlow(false)
@@ -156,11 +160,16 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
                 ) {
                     repo.cargarPedidos(_simularError.value)
                 }
+                val duracion = System.currentTimeMillis() - inicio
                 _carga.value = CargaUi.Exito(
                     modo = "Una por una",
                     perfil = perfil,
                     pedidos = pedidos.size,
-                    milisegundos = System.currentTimeMillis() - inicio
+                    milisegundos = duracion
+                )
+                // Acumula la medición exitosa conservando solo las últimas 5
+                _comparacion.value = _comparacion.value.copy(
+                    unaPorUna = (_comparacion.value.unaPorUna + duracion).takeLast(5)
                 )
             } catch (e: CancellationException) {
                 throw e // la cancelación NO es un error: se vuelve a lanzar
@@ -189,11 +198,19 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
                             repo.cargarPedidos(_simularError.value)
                         }
                     }
+                    // Primero se espera a las dos cargas y recién después se mide el tiempo
+                    val perfilCargado = perfil.await()
+                    val pedidosCargados = pedidos.await()
+                    val duracion = System.currentTimeMillis() - inicio
                     _carga.value = CargaUi.Exito(
                         modo = "A la vez",
-                        perfil = perfil.await(),
-                        pedidos = pedidos.await().size,
-                        milisegundos = System.currentTimeMillis() - inicio
+                        perfil = perfilCargado,
+                        pedidos = pedidosCargados.size,
+                        milisegundos = duracion
+                    )
+                    // Acumula la medición exitosa conservando solo las últimas 5
+                    _comparacion.value = _comparacion.value.copy(
+                        aLaVez = (_comparacion.value.aLaVez + duracion).takeLast(5)
                     )
                 }
             } catch (e: CancellationException) {

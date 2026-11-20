@@ -2,6 +2,11 @@ package com.vasquez.centrotareas.model
 
 data class AvancePrimos(val porcentaje: Int, val cantidad: Int)
 
+data class ComparacionTiempos(
+    val unaPorUna: List<Long> = emptyList(),
+    val aLaVez: List<Long> = emptyList()
+)
+
 sealed interface PrimosUi {
     data object Inicial : PrimosUi
     data object Calculando : PrimosUi

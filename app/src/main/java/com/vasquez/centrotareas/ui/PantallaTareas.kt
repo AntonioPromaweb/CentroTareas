@@ -20,6 +20,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -43,12 +44,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.vasquez.centrotareas.model.CargaUi
+import com.vasquez.centrotareas.model.ComparacionTiempos
 import com.vasquez.centrotareas.model.PrimosUi
 import com.vasquez.centrotareas.ui.theme.ErrorFondo
 import com.vasquez.centrotareas.ui.theme.ErrorRojo
 import com.vasquez.centrotareas.ui.theme.ExitoFondo
 import com.vasquez.centrotareas.ui.theme.ExitoVerde
 import com.vasquez.centrotareas.viewmodel.TareasViewModel
+import kotlin.math.roundToLong
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +61,7 @@ fun PantallaTareas(vm: TareasViewModel) {
     val corriendo by vm.corriendo.collectAsState()
     val primos by vm.primos.collectAsState()
     val carga by vm.carga.collectAsState()
+    val comparacion by vm.comparacion.collectAsState()
     val simularError by vm.simularError.collectAsState()
     var textoN by rememberSaveable { mutableStateOf("5000000") }
     // Contador de la "prueba de vida": si deja de sumar, la pantalla está congelada
@@ -203,10 +207,10 @@ fun PantallaTareas(vm: TareasViewModel) {
                     titulo = "Dos cargas",
                     avatar = { AvatarSatelite(estado = estadoSatelite) }
                 ) {
-                    // Paso 6: los botones se deshabilitan mientras carga o reintenta
+                    // Paso 6: los botones se deshabilitan mientras carga o reintenta. "Una por una" ahora es OutlinedButton.
                     val cargando = carga is CargaUi.Cargando || carga is CargaUi.Reintentando
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = { vm.cargarUnaPorUna() }, enabled = !cargando) { Text("Una por una") }
+                        OutlinedButton(onClick = { vm.cargarUnaPorUna() }, enabled = !cargando) { Text("Una por una") }
                         Button(onClick = { vm.cargarALaVez() }, enabled = !cargando) { Text("A la vez") }
                     }
                     // Paso 7: interruptor para simular que los pedidos fallan
@@ -242,8 +246,94 @@ fun PantallaTareas(vm: TareasViewModel) {
                             Button(onClick = { vm.reintentar() }) { Text("Reintentar") }
                         }
                     }
+
+                    // Tabla que acumula las mediciones de tiempo si hay al menos una
+                    TablaComparacion(comparacion = comparacion)
                 }
             }
+        }
+    }
+}
+
+// Tabla simple con estilo del tema para comparar tiempos
+@Composable
+private fun TablaComparacion(comparacion: ComparacionTiempos) {
+    val unaPorUna = comparacion.unaPorUna
+    val aLaVez = comparacion.aLaVez
+
+    if (unaPorUna.isEmpty() && aLaVez.isEmpty()) return
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Una por una",
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "A la vez",
+                color = MaterialTheme.colorScheme.secondary,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        HorizontalDivider(color = Color.White.copy(alpha = 0.15f), thickness = 1.dp)
+
+        val maxFilas = maxOf(unaPorUna.size, aLaVez.size)
+        for (i in 0 until maxFilas) {
+            val val1 = unaPorUna.getOrNull(i)?.let { "$it ms" } ?: "-"
+            val val2 = aLaVez.getOrNull(i)?.let { "$it ms" } ?: "-"
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = val1,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = val2,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        HorizontalDivider(color = Color.White.copy(alpha = 0.15f), thickness = 1.dp)
+
+        val prom1 = if (unaPorUna.isNotEmpty()) "${unaPorUna.average().roundToLong()} ms" else "-"
+        val prom2 = if (aLaVez.isNotEmpty()) "${aLaVez.average().roundToLong()} ms" else "-"
+
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Promedio: $prom1",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "Promedio: $prom2",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        if (unaPorUna.isNotEmpty() && aLaVez.isNotEmpty()) {
+            val dif = (unaPorUna.average() - aLaVez.average()).roundToLong()
+            Text(
+                text = "A la vez es $dif ms más rápido",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(top = 4.dp)
+            )
         }
     }
 }
