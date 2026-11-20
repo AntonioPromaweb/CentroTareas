@@ -16,6 +16,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -52,6 +53,7 @@ fun PantallaTareas(vm: TareasViewModel) {
     val corriendo by vm.corriendo.collectAsState()
     val primos by vm.primos.collectAsState()
     val carga by vm.carga.collectAsState()
+    val simularError by vm.simularError.collectAsState()
     var textoN by rememberSaveable { mutableStateOf("5000000") }
     // Contador de la "prueba de vida": si deja de sumar, la pantalla está congelada
     var toques by rememberSaveable { mutableIntStateOf(0) }
@@ -137,6 +139,18 @@ fun PantallaTareas(vm: TareasViewModel) {
                     Button(onClick = { vm.cargarUnaPorUna() }, enabled = !cargando) { Text("Una por una") }
                     Button(onClick = { vm.cargarALaVez() }, enabled = !cargando) { Text("A la vez") }
                 }
+                // Paso 7: interruptor para simular que los pedidos fallan
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Simular error")
+                    Switch(
+                        checked = simularError,
+                        onCheckedChange = { vm.cambiarSimularError(it) },
+                        enabled = !cargando
+                    )
+                }
                 when (val estado = carga) {
                     CargaUi.Inicial -> Text("Elige cómo cargar")
                     CargaUi.Cargando -> {
@@ -148,7 +162,11 @@ fun PantallaTareas(vm: TareasViewModel) {
                             "Pedidos: ${estado.pedidos}\nTiempo: ${estado.milisegundos} ms",
                         ExitoFondo, ExitoVerde
                     )
-                    is CargaUi.Error -> CajaResultado(estado.mensaje, ErrorFondo, ErrorRojo)
+                    is CargaUi.Error -> {
+                        CajaResultado(estado.mensaje, ErrorFondo, ErrorRojo)
+                        // Reintentar vuelve a cargar "A la vez"
+                        Button(onClick = { vm.reintentar() }) { Text("Reintentar") }
+                    }
                 }
             }
         }
