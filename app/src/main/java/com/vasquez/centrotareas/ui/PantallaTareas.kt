@@ -174,6 +174,11 @@ fun PantallaTareas(vm: TareasViewModel) {
                                 modifier = Modifier.fillMaxWidth()
                             )
                             Text("Calculando... ${estado.porcentaje} %")
+                            // Contador en vivo: sube mientras el Repository sigue emitiendo avances
+                            Text(
+                                "Primos encontrados: ${estado.encontrados}",
+                                color = MaterialTheme.colorScheme.secondary
+                            )
                         }
                         is PrimosUi.Listo -> CajaResultado(
                             "Hay ${estado.cantidad} primos hasta $n\nTiempo: ${estado.milisegundos} ms",

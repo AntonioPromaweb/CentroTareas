@@ -86,7 +86,7 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
             try {
                 repo.contarPrimosConProgreso(hasta).collect { avance ->
                     if (avance.porcentaje < 100) {
-                        _primos.value = PrimosUi.Avance(avance.porcentaje)
+                        _primos.value = PrimosUi.Avance(avance.porcentaje, avance.cantidad)
                     } else {
                         val duracion = System.currentTimeMillis() - inicio
                         _primos.value = PrimosUi.Listo(avance.cantidad, duracion)

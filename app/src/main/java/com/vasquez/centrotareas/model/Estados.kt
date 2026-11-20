@@ -5,7 +5,7 @@ data class AvancePrimos(val porcentaje: Int, val cantidad: Int)
 sealed interface PrimosUi {
     data object Inicial : PrimosUi
     data object Calculando : PrimosUi
-    data class Avance(val porcentaje: Int) : PrimosUi
+    data class Avance(val porcentaje: Int, val encontrados: Int = 0) : PrimosUi
     data class Listo(val cantidad: Int, val milisegundos: Long) : PrimosUi
     data object Cancelado : PrimosUi
 }
