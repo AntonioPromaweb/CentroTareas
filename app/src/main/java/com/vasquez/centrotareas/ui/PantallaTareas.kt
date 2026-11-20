@@ -28,6 +28,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
+import com.vasquez.centrotareas.model.PrimosUi
+import com.vasquez.centrotareas.ui.theme.ExitoFondo
+import com.vasquez.centrotareas.ui.theme.ExitoVerde
 import com.vasquez.centrotareas.viewmodel.TareasViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,6 +47,8 @@ fun PantallaTareas(vm: TareasViewModel) {
     val mensaje by vm.mensaje.collectAsState()
     val progreso by vm.progreso.collectAsState()
     val corriendo by vm.corriendo.collectAsState()
+    val primos by vm.primos.collectAsState()
+    var textoN by rememberSaveable { mutableStateOf("5000000") }
     // Contador de la "prueba de vida": si deja de sumar, la pantalla está congelada
     var toques by rememberSaveable { mutableIntStateOf(0) }
 
@@ -77,8 +90,40 @@ fun PantallaTareas(vm: TareasViewModel) {
             }
 
             TarjetaTarea(titulo = "Contar números primos") {
-                // TODO Paso 5: campo numérico, botones Contar / Cancelar y el resultado
-                Text(text = "Pendiente: Paso 5", style = MaterialTheme.typography.bodyMedium)
+                // Paso 5: el texto del campo vive en la pantalla (rememberSaveable sobrevive a rotar)
+                OutlinedTextField(
+                    value = textoN,
+                    onValueChange = { textoN = it.filter { c -> c.isDigit() }.take(9) },
+                    label = { Text("Contar primos hasta") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    enabled = primos !is PrimosUi.Calculando
+                )
+                val n = textoN.toIntOrNull()
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(
+                        // Se ignora un número vacío, menor que 2 o que ya está calculando
+                        onClick = { if (n != null && n >= 2) vm.contar(n) },
+                        enabled = primos !is PrimosUi.Calculando && n != null && n >= 2
+                    ) { Text("Contar") }
+                    OutlinedButton(
+                        onClick = { vm.cancelarPrimos() },
+                        enabled = primos is PrimosUi.Calculando
+                    ) { Text("Cancelar") }
+                }
+                // Un when exhaustivo sobre el estado: la pantalla solo dibuja lo que dice el estado
+                when (val estado = primos) {
+                    PrimosUi.Inicial -> Text("Escribe un número y pulsa Contar")
+                    PrimosUi.Calculando -> {
+                        CircularProgressIndicator()
+                        Text("Calculando...")
+                    }
+                    is PrimosUi.Listo -> CajaResultado(
+                        "Hay ${estado.cantidad} primos hasta $n\nTiempo: ${estado.milisegundos} ms",
+                        ExitoFondo, ExitoVerde
+                    )
+                    PrimosUi.Cancelado -> Text("Cancelado")
+                }
             }
 
             TarjetaTarea(titulo = "Dos cargas") {
@@ -87,6 +132,20 @@ fun PantallaTareas(vm: TareasViewModel) {
             }
         }
     }
+}
+
+// Caja de color para mostrar un resultado (verde = éxito)
+@Composable
+private fun CajaResultado(texto: String, fondo: Color, colorTexto: Color) {
+    Text(
+        text = texto,
+        color = colorTexto,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(fondo, RoundedCornerShape(8.dp))
+            .padding(12.dp)
+    )
 }
 
 @Composable
