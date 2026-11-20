@@ -1,8 +1,13 @@
 package com.vasquez.centrotareas.data
 
+import com.vasquez.centrotareas.model.AvancePrimos
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.IOException
 
@@ -31,6 +36,24 @@ class TareasRepositoryLocal : TareasRepository {
         }
         cantidad
     }
+
+    override fun contarPrimosConProgreso(hasta: Int): Flow<AvancePrimos> = flow {
+        var cantidad = 0
+        var ultimoPorcentaje = -1
+
+        for (n in 2..hasta) {
+            currentCoroutineContext().ensureActive()
+            if (esPrimo(n)) {
+                cantidad++
+            }
+            val porcentaje = ((n.toLong() * 100) / hasta).toInt()
+            if (porcentaje != ultimoPorcentaje && porcentaje < 100) {
+                ultimoPorcentaje = porcentaje
+                emit(AvancePrimos(porcentaje, cantidad))
+            }
+        }
+        emit(AvancePrimos(100, cantidad))
+    }.flowOn(Dispatchers.Default)
 
     // Divide solo hasta la raíz de n. d.toLong() * d evita el desbordamiento de Int.
     private fun esPrimo(n: Int): Boolean {

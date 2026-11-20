@@ -70,22 +70,28 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
         _mensaje.value = "Cancelado"
     }
 
-    // ----- Contar primos (paso 5)
+    // ----- Contar primos (paso 5 + progreso)
     private val _primos = MutableStateFlow<PrimosUi>(PrimosUi.Inicial)
     val primos: StateFlow<PrimosUi> = _primos.asStateFlow()
 
-    // Paso 5: Job propio para poder cancelar el conteo sin afectar a la otra tarea
+    // Job propio para poder cancelar el conteo sin afectar a la otra tarea
     private var trabajoPrimos: Job? = null
 
-    // Cuenta primos hasta "hasta", mide el tiempo y publica Listo o Cancelado
+    // Cuenta primos hasta "hasta", publica progreso (Avance) y al finalizar Listo o Cancelado
     fun contar(hasta: Int) {
-        if (_primos.value is PrimosUi.Calculando) return // evita doble inicio
+        if (_primos.value is PrimosUi.Calculando || _primos.value is PrimosUi.Avance) return // evita doble inicio
         _primos.value = PrimosUi.Calculando
         trabajoPrimos = viewModelScope.launch {
             val inicio = System.currentTimeMillis()
             try {
-                val cantidad = repo.contarPrimos(hasta)
-                _primos.value = PrimosUi.Listo(cantidad, System.currentTimeMillis() - inicio)
+                repo.contarPrimosConProgreso(hasta).collect { avance ->
+                    if (avance.porcentaje < 100) {
+                        _primos.value = PrimosUi.Avance(avance.porcentaje)
+                    } else {
+                        val duracion = System.currentTimeMillis() - inicio
+                        _primos.value = PrimosUi.Listo(avance.cantidad, duracion)
+                    }
+                }
             } catch (e: CancellationException) {
                 _primos.value = PrimosUi.Cancelado
                 throw e // siempre se vuelve a lanzar para no romper la cancelación

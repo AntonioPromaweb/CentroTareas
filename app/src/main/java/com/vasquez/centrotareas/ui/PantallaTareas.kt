@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -79,8 +80,11 @@ fun PantallaTareas(vm: TareasViewModel) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
+                    // imePadding: cuando sale el teclado, el área visible se reduce y se puede
+                    // seguir desplazando hasta ver los botones y el resultado
+                    .imePadding()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
+                    .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 // Cálculo de estado para el avatar del cohete (if / else)
@@ -114,7 +118,9 @@ fun PantallaTareas(vm: TareasViewModel) {
                 }
 
                 // Cálculo de estado para el avatar del planeta (if / else)
-                val estadoPlaneta = if (primos is PrimosUi.Calculando) {
+                val estaCalculando = primos is PrimosUi.Calculando || primos is PrimosUi.Avance
+
+                val estadoPlaneta = if (estaCalculando) {
                     EstadoAvatar.Trabajando
                 } else if (primos is PrimosUi.Listo) {
                     EstadoAvatar.Exito
@@ -133,7 +139,7 @@ fun PantallaTareas(vm: TareasViewModel) {
                         label = { Text("Contar primos hasta") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        enabled = primos !is PrimosUi.Calculando,
+                        enabled = !estaCalculando,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
@@ -148,11 +154,11 @@ fun PantallaTareas(vm: TareasViewModel) {
                         Button(
                             // Se ignora un número vacío, menor que 2 o que ya está calculando
                             onClick = { if (n != null && n >= 2) vm.contar(n) },
-                            enabled = primos !is PrimosUi.Calculando && n != null && n >= 2
+                            enabled = !estaCalculando && n != null && n >= 2
                         ) { Text("Contar") }
                         OutlinedButton(
                             onClick = { vm.cancelarPrimos() },
-                            enabled = primos is PrimosUi.Calculando
+                            enabled = estaCalculando
                         ) { Text("Cancelar") }
                     }
                     // Un when exhaustivo sobre el estado: la pantalla solo dibuja lo que dice el estado
@@ -161,6 +167,13 @@ fun PantallaTareas(vm: TareasViewModel) {
                         PrimosUi.Calculando -> {
                             CircularProgressIndicator()
                             Text("Calculando...")
+                        }
+                        is PrimosUi.Avance -> {
+                            LinearProgressIndicator(
+                                progress = { estado.porcentaje / 100f },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text("Calculando... ${estado.porcentaje} %")
                         }
                         is PrimosUi.Listo -> CajaResultado(
                             "Hay ${estado.cantidad} primos hasta $n\nTiempo: ${estado.milisegundos} ms",
