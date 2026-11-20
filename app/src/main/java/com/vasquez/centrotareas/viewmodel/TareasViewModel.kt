@@ -9,6 +9,8 @@ import com.vasquez.centrotareas.model.PrimosUi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -99,6 +101,45 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
     private val _carga = MutableStateFlow<CargaUi>(CargaUi.Inicial)
     val carga: StateFlow<CargaUi> = _carga.asStateFlow()
 
-    // TODO Paso 6: fun cargarUnaPorUna() y fun cargarALaVez()
+    // Paso 6: dos cargas independientes (perfil 2 s y pedidos 3 s). Se comparan dos formas.
+
+    // Una por una: la segunda espera a que termine la primera -> ~5 s (2 + 3)
+    fun cargarUnaPorUna() {
+        if (_carga.value is CargaUi.Cargando) return // evita doble inicio
+        _carga.value = CargaUi.Cargando
+        viewModelScope.launch {
+            val inicio = System.currentTimeMillis()
+            val perfil = repo.cargarPerfil()           // espera 2 s
+            val pedidos = repo.cargarPedidos(false)    // y luego espera 3 s
+            _carga.value = CargaUi.Exito(
+                modo = "Una por una",
+                perfil = perfil,
+                pedidos = pedidos.size,
+                milisegundos = System.currentTimeMillis() - inicio
+            )
+        }
+    }
+
+    // A la vez: async lanza las dos cargas al mismo tiempo y await() espera los resultados
+    // -> ~3 s (lo que tarda la más lenta). coroutineScope hace que, si una falla o se
+    // cancela, la otra también se cancele.
+    fun cargarALaVez() {
+        if (_carga.value is CargaUi.Cargando) return
+        _carga.value = CargaUi.Cargando
+        viewModelScope.launch {
+            val inicio = System.currentTimeMillis()
+            coroutineScope {
+                val perfil = async { repo.cargarPerfil() }
+                val pedidos = async { repo.cargarPedidos(false) }
+                _carga.value = CargaUi.Exito(
+                    modo = "A la vez",
+                    perfil = perfil.await(),
+                    pedidos = pedidos.await().size,
+                    milisegundos = System.currentTimeMillis() - inicio
+                )
+            }
+        }
+    }
+
     // TODO Paso 7: simularError y manejo de errores
 }

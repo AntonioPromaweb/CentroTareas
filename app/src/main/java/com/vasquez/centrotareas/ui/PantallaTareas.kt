@@ -36,7 +36,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
+import com.vasquez.centrotareas.model.CargaUi
 import com.vasquez.centrotareas.model.PrimosUi
+import com.vasquez.centrotareas.ui.theme.ErrorFondo
+import com.vasquez.centrotareas.ui.theme.ErrorRojo
 import com.vasquez.centrotareas.ui.theme.ExitoFondo
 import com.vasquez.centrotareas.ui.theme.ExitoVerde
 import com.vasquez.centrotareas.viewmodel.TareasViewModel
@@ -48,6 +51,7 @@ fun PantallaTareas(vm: TareasViewModel) {
     val progreso by vm.progreso.collectAsState()
     val corriendo by vm.corriendo.collectAsState()
     val primos by vm.primos.collectAsState()
+    val carga by vm.carga.collectAsState()
     var textoN by rememberSaveable { mutableStateOf("5000000") }
     // Contador de la "prueba de vida": si deja de sumar, la pantalla está congelada
     var toques by rememberSaveable { mutableIntStateOf(0) }
@@ -127,8 +131,25 @@ fun PantallaTareas(vm: TareasViewModel) {
             }
 
             TarjetaTarea(titulo = "Dos cargas") {
-                // TODO Pasos 6 y 7: botones Una por una / A la vez, resultado y error
-                Text(text = "Pendiente: Pasos 6 y 7", style = MaterialTheme.typography.bodyMedium)
+                // Paso 6: los botones se deshabilitan mientras carga para no lanzar dos cargas
+                val cargando = carga is CargaUi.Cargando
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Button(onClick = { vm.cargarUnaPorUna() }, enabled = !cargando) { Text("Una por una") }
+                    Button(onClick = { vm.cargarALaVez() }, enabled = !cargando) { Text("A la vez") }
+                }
+                when (val estado = carga) {
+                    CargaUi.Inicial -> Text("Elige cómo cargar")
+                    CargaUi.Cargando -> {
+                        CircularProgressIndicator()
+                        Text("Cargando...")
+                    }
+                    is CargaUi.Exito -> CajaResultado(
+                        "Modo: ${estado.modo}\nPerfil: ${estado.perfil}\n" +
+                            "Pedidos: ${estado.pedidos}\nTiempo: ${estado.milisegundos} ms",
+                        ExitoFondo, ExitoVerde
+                    )
+                    is CargaUi.Error -> CajaResultado(estado.mensaje, ErrorFondo, ErrorRojo)
+                }
             }
         }
     }
