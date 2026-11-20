@@ -14,7 +14,14 @@ class TareasViewModel(private val repo: TareasRepository) : ViewModel() {
     private val _mensaje = MutableStateFlow("Listo")
     val mensaje: StateFlow<String> = _mensaje.asStateFlow()
 
-    // TODO Paso 1: fun tareaLargaMala()
+    // Paso 1: MAL a propósito. Thread.sleep bloquea el hilo principal (el que dibuja la
+    // pantalla y atiende los toques), así que nada responde durante 4 segundos.
+    fun tareaLargaMala() {
+        _mensaje.value = "Trabajando..."
+        Thread.sleep(4000)
+        _mensaje.value = "Terminó"
+    }
+
     // TODO Paso 2: fun tareaLarga()
     // TODO Paso 3: progreso
     // TODO Paso 4: trabajo (Job), corriendo y cancelar()
