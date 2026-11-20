@@ -83,3 +83,25 @@ Si la pantalla se cierra por completo, el ViewModel se destruye y `viewModelScop
 
 **5. ¿Por qué `async` tarda 3 s y no 5 s? ¿Qué pasa si una de las dos cargas falla?**
 Porque las dos cargas corren al mismo tiempo: el total es el de la más lenta (máximo entre 2 s y 3 s), no la suma. Dentro de `coroutineScope`, si una falla, la otra se cancela y la excepción sale por `await()`, donde la atrapa el `try/catch` que muestra el recuadro de error.
+
+## Fase 2 · Mejoras con IA (rama `mejora-ia`)
+
+Con Gemini mejoré CentroTareas sin romper MVVM + Repository. El registro de cada prompt está en [PROMPTS.md](PROMPTS.md).
+
+| Mejora | Capas que cambia | Commit |
+|---|---|---|
+| Tema espacial: fondo con estrellas que viajan y paleta cósmica | View | `feat(tema)` |
+| Avatares animados que reaccionan al estado de cada tarjeta | View | `feat(avatares)` |
+| Primos con progreso, emitido como `Flow` desde el Repository | Repository, ViewModel, View | `feat(primos)` |
+| Reintento automático con espera creciente (3 intentos) | ViewModel, View | `feat(reintento)` |
+| Tabla de comparación de tiempos Una por una vs A la vez | ViewModel, View | `feat(comparacion)` |
+
+| Tema espacial y avatares | Primos con progreso (Flow) |
+|---|---|
+| <img src="docs/capturas-ia/ia-02-avatares.png" width="260"> | <img src="docs/capturas-ia/ia-03-primos-progreso.png" width="260"> |
+| Fondo de estrellas animado y un avatar por tarjeta: cohete, planeta y satélite. | El Repository emite el avance: «Calculando... 56 %» y el contador de primos en vivo. |
+
+| Reintento automático | Comparación de tiempos |
+|---|---|
+| <img src="docs/capturas-ia/ia-04-reintento.png" width="260"> | <img src="docs/capturas-ia/ia-05-comparacion.png" width="260"> |
+| Con «Simular error», «Reintentando (2 de 3)...» antes de mostrar el error. | A la vez es 2031 ms más rápido que Una por una. |
